@@ -439,6 +439,18 @@
   /* ================= UTILIDADES ================= */
   const norm = s => s.toLowerCase().normalize("NFD").replace(/\p{M}/gu,"").trim();
   const rand = a => a[Math.floor(Math.random()*a.length)];
+  // Variantes de plural/género de la palabra secreta (gato/gatos/gata/gatas, profesor/profesora...).
+  // Si el jugador escribe una de estas, es un acierto exacto verificable en JS: no hace falta
+  // preguntarle al LLM si es "sinónimo directo" para algo que ya sabemos con certeza.
+  function morphVariants(word){
+    const s = norm(word);
+    const set = new Set([s]);
+    if(/[aeiouáéíóú]$/.test(s)) set.add(s+"s"); else set.add(s+"es");
+    if(s.endsWith("o")){ const f=s.slice(0,-1)+"a"; set.add(f); set.add(f+"s"); }
+    else if(s.endsWith("a")){ const m=s.slice(0,-1)+"o"; set.add(m); set.add(m+"s"); }
+    else { const f=s+"a"; set.add(f); set.add(f+"s"); }
+    return set;
+  }
   function parseJSON(text){
     const t = text.replace(/```json|```/gi,"").trim();
     const m = t.match(/\{[\s\S]*\}/);
@@ -603,8 +615,8 @@ Responde SOLO con JSON válido:
     think(true);
     speak("El oráculo contempla tu palabra…");
 
-    // acierto exacto local (sin gastar LLM)
-    if(g === norm(S.secret)){
+    // acierto exacto local (sin gastar LLM), incluyendo variantes de plural/género
+    if(g === norm(S.secret) || morphVariants(S.secret).has(g)){
       think(false);
       return finishRound(true, g, 100);
     }
