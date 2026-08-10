@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CÓDICE · El Oráculo Semántico</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0f1e; --bg2:#0e1530; --panel:#121a35; --panel2:#0d1329; --line:#26315a;
+    --ink:#eef1ff; --mut:#8b96b8; --dim:#5b6488;
+    --gold:#f5b942; --ember:#ff6b35; --hotred:#ff5c3d; --ice:#6ec6ff; --mint:#4ade80; --violet:#8b5cf6;
+    --disp:'Unbounded',sans-serif; --body:'Instrument Sans',sans-serif; --mono:'JetBrains Mono',monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    font-family:var(--body); background:var(--bg); color:var(--ink); overflow:hidden;
+    background-image:
+      radial-gradient(700px 500px at 50% 115%, rgba(255,107,53,.10), transparent 60%),
+      radial-gradient(500px 350px at 15% -10%, rgba(139,92,246,.10), transparent 60%),
+      radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,.25) 50%, transparent 51%),
+      radial-gradient(1px 1px at 70% 15%, rgba(255,255,255,.2) 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 85% 60%, rgba(255,255,255,.18) 50%, transparent 51%),
+      radial-gradient(1px 1px at 40% 80%, rgba(255,255,255,.15) 50%, transparent 51%),
+      radial-gradient(1px 1px at 10% 65%, rgba(255,255,255,.2) 50%, transparent 51%);
+  }
+  ::selection{background:var(--gold);color:#1a1204}
+  button{font-family:inherit}
+
+  .app{display:grid; grid-template-rows:auto 1fr auto auto; height:100vh; max-width:1100px; margin:0 auto; padding:0 1.2rem}
+
+  /* ============ HUD ============ */
+  .hud{
+    display:flex; align-items:center; gap:1.5rem; padding:.9rem 0;
+    border-bottom:1px solid var(--line);
+  }
+  .logo{font-family:var(--disp); font-weight:900; font-size:1.3rem; letter-spacing:.12em; color:var(--gold);
+    text-shadow:0 0 24px rgba(245,185,66,.4)}
+  .logo small{display:block; font-family:var(--mono); font-weight:400; font-size:.55rem; letter-spacing:.3em; color:var(--dim)}
+  .stats{display:flex; gap:1.6rem; margin-left:auto; flex-wrap:wrap}
+  .stat{text-align:center}
+  .stat label{display:block; font-family:var(--mono); font-size:.55rem; letter-spacing:.24em; color:var(--dim)}
+  .stat b{font-family:var(--mono); font-size:1.05rem; color:var(--ink)}
+  .stat b.gold{color:var(--gold)} .stat b.ember{color:var(--ember)}
+  .icon-btn{background:none; border:1px solid var(--line); border-radius:6px; color:var(--ink);
+    width:38px; height:38px; cursor:pointer; font-size:1rem; transition:all .2s}
+  .icon-btn:hover{border-color:var(--gold); box-shadow:0 0 12px rgba(245,185,66,.2)}
+
+  /* ============ TABLERO ============ */
+  .board{
+    display:grid; grid-template-columns:1fr 1fr; gap:2rem; align-items:center;
+    padding:1.4rem 0; overflow:hidden; min-height:0;
+  }
+  .oracle-side{display:flex; flex-direction:column; align-items:center; gap:1.1rem; min-width:0}
+  .orb-wrap{position:relative; width:170px; height:170px; flex:none}
+  .ring{
+    position:absolute; inset:-14px; border-radius:50%;
+    border:1px dashed rgba(245,185,66,.35); animation:spin 22s linear infinite;
+  }
+  .ring::before{content:"✦"; position:absolute; top:-9px; left:50%; color:var(--gold); font-size:.8rem}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .orb{
+    width:100%; height:100%; border-radius:50%;
+    background:radial-gradient(circle at 34% 28%, #ffedb8 0%, var(--gold) 22%, #a4516b 55%, #4c2a85 80%, #1b1140 100%);
+    box-shadow:0 0 40px rgba(245,185,66,.25), 0 0 90px rgba(139,92,246,.2), inset 0 0 30px rgba(0,0,0,.4);
+    animation:breathe 4s ease-in-out infinite;
+  }
+  @keyframes breathe{50%{box-shadow:0 0 60px rgba(245,185,66,.45), 0 0 120px rgba(139,92,246,.3), inset 0 0 30px rgba(0,0,0,.4)}}
+  .orb-wrap.thinking .orb{animation:think .8s ease-in-out infinite}
+  @keyframes think{50%{transform:scale(1.06); box-shadow:0 0 80px rgba(245,185,66,.6), inset 0 0 40px rgba(0,0,0,.5)}}
+  .orb-wrap.thinking .ring{animation-duration:3s}
+
+  .speech{
+    width:100%; max-width:380px; background:var(--panel); border:1px solid var(--line);
+    border-radius:10px; padding:.8rem 1rem; position:relative; min-height:74px;
+  }
+  .speech::before{
+    content:""; position:absolute; top:-7px; left:50%; transform:translateX(-50%) rotate(45deg);
+    width:12px; height:12px; background:var(--panel); border-left:1px solid var(--line); border-top:1px solid var(--line);
+  }
+  .speech-tag{font-family:var(--mono); font-size:.58rem; letter-spacing:.3em; color:var(--gold); margin-bottom:.3rem}
+  .speech p{font-size:.92rem; line-height:1.5; color:var(--ink)}
+
+  .gauge-side{display:flex; flex-direction:column; gap:1rem; min-width:0}
+  .cat-line{font-family:var(--mono); font-size:.68rem; letter-spacing:.28em; color:var(--mut); text-align:center}
+  .cat-line b{color:var(--ice)}
+  .thermo{
+    position:relative; height:22px; border-radius:11px; border:1px solid var(--line);
+    background:linear-gradient(90deg, #3b6fc4, var(--ice) 18%, #58c6a8 38%, #f2c14e 58%, #ff9636 78%, var(--hotred) 100%);
+    box-shadow:0 0 24px rgba(255,107,53,.12);
+  }
+  .needle{
+    position:absolute; top:-9px; bottom:-9px; width:4px; left:0%;
+    background:#fff; border-radius:2px; box-shadow:0 0 12px #fff, 0 0 4px #fff;
+    transition:left .9s cubic-bezier(.2,.9,.3,1.2); display:none;
+  }
+  .needle.on{display:block}
+  .thermo-labels{display:flex; justify-content:space-between; font-family:var(--mono); font-size:.56rem; letter-spacing:.2em; color:var(--dim)}
+  .dist-read{text-align:center}
+  .dist-read b{font-family:var(--disp); font-weight:900; font-size:2.6rem; line-height:1}
+  .dist-read span{display:block; font-family:var(--mono); font-size:.62rem; letter-spacing:.3em; margin-top:.2rem}
+  .tries-row{display:flex; align-items:center; justify-content:center; gap:.7rem; font-family:var(--mono); font-size:.62rem; letter-spacing:.2em; color:var(--dim)}
+  .dots{display:flex; gap:.35rem}
+  .dot-try{width:12px; height:12px; border-radius:50%; border:1px solid var(--line); background:var(--panel2); transition:all .3s}
+  .dot-try.used{background:var(--ember); border-color:var(--ember); box-shadow:0 0 8px rgba(255,107,53,.5)}
+
+  /* ============ HISTORIAL ============ */
+  .history{padding:.4rem 0 .8rem; min-height:58px}
+  .history-label{font-family:var(--mono); font-size:.56rem; letter-spacing:.28em; color:var(--dim); margin-bottom:.45rem}
+  #chips{display:flex; gap:.5rem; flex-wrap:wrap}
+  .chip-g{
+    display:inline-flex; flex-direction:column; align-items:center; gap:.1rem;
+    padding:.35rem .75rem; border-radius:8px; border:1px solid;
+    animation:chipIn .4s cubic-bezier(.2,1.4,.4,1);
+  }
+  @keyframes chipIn{from{transform:scale(.5); opacity:0}}
+  .chip-g .w{font-weight:700; font-size:.85rem}
+  .chip-g .t{font-family:var(--mono); font-size:.52rem; letter-spacing:.14em; opacity:.85}
+
+  /* ============ CONSOLA ============ */
+  .console{
+    display:flex; gap:.6rem; padding:.9rem 0 1.2rem; border-top:1px solid var(--line);
+  }
+  .console input{
+    flex:1; background:var(--panel2); border:1px solid var(--line); border-radius:8px;
+    padding:.85rem 1rem; color:var(--ink); font-family:var(--body); font-size:1rem;
+    transition:border-color .2s, box-shadow .2s;
+  }
+  .console input:focus{outline:none; border-color:var(--gold); box-shadow:0 0 0 3px rgba(245,185,66,.15)}
+  .console input:disabled{opacity:.45}
+  .btn-gold{
+    font-family:var(--disp); font-weight:700; font-size:.8rem; letter-spacing:.1em;
+    background:var(--gold); color:#1a1204; border:none; border-radius:8px; padding:0 1.5rem;
+    cursor:pointer; transition:all .18s;
+  }
+  .btn-gold:hover:not(:disabled){box-shadow:0 4px 22px rgba(245,185,66,.45); transform:translateY(-2px)}
+  .btn-gold:disabled{opacity:.4; cursor:not-allowed}
+  .btn-clue{
+    font-family:var(--mono); font-size:.7rem; letter-spacing:.08em; background:transparent;
+    color:var(--ice); border:1px solid rgba(110,198,255,.4); border-radius:8px; padding:0 1.1rem;
+    cursor:pointer; transition:all .18s;
+  }
+  .btn-clue:hover:not(:disabled){background:rgba(110,198,255,.1); box-shadow:0 0 16px rgba(110,198,255,.2)}
+  .btn-clue:disabled{opacity:.35; cursor:not-allowed}
+  .btn-dim{
+    background:transparent; border:1px solid var(--line); color:var(--dim); border-radius:8px;
+    padding:0 .9rem; cursor:pointer; font-size:.9rem; transition:all .18s;
+  }
+  .btn-dim:hover{color:var(--hotred); border-color:var(--hotred)}
+  .console.shake{animation:shake .35s}
+  @keyframes shake{20%{transform:translateX(-6px)}45%{transform:translateX(5px)}70%{transform:translateX(-3px)}}
+
+  /* ============ OVERLAYS ============ */
+  .overlay{
+    position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center;
+    background:rgba(6,9,20,.82); backdrop-filter:blur(6px); padding:1.4rem;
+  }
+  .overlay.show{display:flex}
+  .ov-panel{
+    background:var(--panel); border:1px solid var(--line); border-radius:14px;
+    padding:2.2rem 2.4rem; max-width:560px; width:100%; max-height:92vh; overflow-y:auto;
+    box-shadow:0 30px 80px rgba(0,0,0,.6); animation:ovIn .45s cubic-bezier(.2,1.3,.4,1);
+  }
+  @keyframes ovIn{from{transform:scale(.85) translateY(24px); opacity:0}}
+  .ov-title{font-family:var(--disp); font-weight:900; font-size:clamp(1.9rem,5vw,2.9rem); letter-spacing:.08em;
+    color:var(--gold); text-shadow:0 0 30px rgba(245,185,66,.45); text-align:center}
+  .ov-sub{text-align:center; color:var(--mut); font-size:.95rem; margin:.6rem 0 1.5rem; line-height:1.55}
+  .ov-section-label{font-family:var(--mono); font-size:.6rem; letter-spacing:.28em; color:var(--dim); margin:1.2rem 0 .6rem}
+  .cat-pick{display:flex; flex-wrap:wrap; gap:.45rem}
+  .cat-pick button{
+    font-family:var(--mono); font-size:.68rem; letter-spacing:.1em; padding:.45rem .8rem;
+    background:var(--panel2); border:1px solid var(--line); border-radius:6px; color:var(--mut);
+    cursor:pointer; transition:all .18s;
+  }
+  .cat-pick button:hover{color:var(--ink); border-color:var(--ice)}
+  .cat-pick button.sel{background:rgba(245,185,66,.12); border-color:var(--gold); color:var(--gold)}
+  .diff-pick{display:grid; gap:.5rem}
+  .diff-pick button{
+    display:flex; justify-content:space-between; align-items:center; gap:1rem; text-align:left;
+    background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:.7rem .9rem;
+    color:var(--ink); cursor:pointer; transition:all .18s;
+  }
+  .diff-pick button:hover{border-color:var(--ice)}
+  .diff-pick button.sel{border-color:var(--gold); background:rgba(245,185,66,.08)}
+  .diff-pick .dn{font-family:var(--disp); font-weight:700; font-size:.78rem; letter-spacing:.08em}
+  .diff-pick .dd{font-size:.75rem; color:var(--mut)}
+  .diff-pick .dm{font-family:var(--mono); font-size:.62rem; color:var(--gold)}
+  .btn-big{
+    display:block; width:100%; margin-top:1.6rem; padding:1rem;
+    font-family:var(--disp); font-weight:900; font-size:1rem; letter-spacing:.18em;
+    background:linear-gradient(135deg, var(--gold), var(--ember)); color:#1a0e04;
+    border:none; border-radius:10px; cursor:pointer; transition:all .2s;
+  }
+  .btn-big:hover:not(:disabled){box-shadow:0 8px 30px rgba(255,107,53,.4); transform:translateY(-2px)}
+  .btn-big:disabled{opacity:.4; cursor:not-allowed; filter:grayscale(.6)}
+  .btn-row{display:flex; gap:.7rem; margin-top:1.4rem}
+  .btn-row button{flex:1; padding:.85rem; border-radius:8px; cursor:pointer; font-family:var(--disp); font-weight:700; font-size:.75rem; letter-spacing:.12em; transition:all .2s}
+  .btn-again{background:var(--gold); color:#1a1204; border:none}
+  .btn-again:hover{box-shadow:0 6px 24px rgba(245,185,66,.4)}
+  .btn-config{background:transparent; color:var(--mut); border:1px solid var(--line)}
+  .btn-config:hover{border-color:var(--ice); color:var(--ink)}
+  .api-warn{
+    background:rgba(255,92,61,.08); border:1px solid rgba(255,92,61,.35); border-radius:8px;
+    padding:.7rem .9rem; font-size:.8rem; color:var(--hotred); margin-top:1rem; line-height:1.5;
+  }
+  .howto{margin-top:1.3rem; padding-top:1.1rem; border-top:1px solid var(--line); font-size:.8rem; color:var(--dim); line-height:1.7}
+  .howto b{color:var(--mut)}
+
+  .result-word{font-family:var(--disp); font-weight:900; font-size:1.7rem; text-align:center; margin:.8rem 0 1.2rem; letter-spacing:.06em}
+  .breakdown{border:1px solid var(--line); border-radius:8px; overflow:hidden; margin-top:.4rem}
+  .bd-row{display:flex; justify-content:space-between; padding:.5rem .9rem; font-size:.85rem; border-bottom:1px solid var(--line)}
+  .bd-row:last-child{border:none; background:rgba(245,185,66,.08)}
+  .bd-row span{color:var(--mut)} .bd-row b{font-family:var(--mono)}
+  .bd-row.total span{color:var(--gold)} .bd-row.total b{color:var(--gold); font-size:1rem}
+
+  .confetti{position:fixed; top:-20px; z-index:70; pointer-events:none; animation:fall linear forwards}
+  @keyframes fall{to{transform:translateY(110vh) rotate(720deg); opacity:.6}}
+
+  footer.note{position:fixed; bottom:6px; right:12px; font-family:var(--mono); font-size:.55rem; letter-spacing:.14em; color:var(--dim); z-index:5}
+
+  @media (max-width:820px){
+    .board{grid-template-columns:1fr; gap:1.2rem; overflow-y:auto}
+    .orb-wrap{width:120px; height:120px}
+    .stats{gap:.9rem}
+    .console{flex-wrap:wrap}
+    .console input{flex:1 1 100%}
+    footer.note{display:none}
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- HUD -->
+  <header class="hud">
+    <div class="logo">CÓDICE<small>EL ORÁCULO SEMÁNTICO</small></div>
+    <div class="stats">
+      <div class="stat"><label>RONDA</label><b id="hRound">1</b></div>
+      <div class="stat"><label>PUNTOS</label><b class="gold" id="hScore">0</b></div>
+      <div class="stat"><label>RACHA</label><b class="ember" id="hStreak">0 🔥</b></div>
+      <div class="stat"><label>MEJOR</label><b id="hBest">0</b></div>
+    </div>
+    <button class="icon-btn" id="btnMute" title="Sonido">🔊</button>
+  </header>
+
+  <!-- TABLERO -->
+  <main class="board" id="board">
+    <section class="oracle-side">
+      <div class="orb-wrap" id="orbWrap">
+        <div class="ring"></div>
+        <div class="orb"></div>
+      </div>
+      <div class="speech">
+        <div class="speech-tag" id="speechTag">ORÁCULO</div>
+        <p id="speech">Las estrellas aún no han elegido una palabra…</p>
+      </div>
+    </section>
+
+    <section class="gauge-side">
+      <div class="cat-line">CATEGORÍA · <b id="catLine">—</b></div>
+      <div class="thermo"><div class="needle" id="needle"></div></div>
+      <div class="thermo-labels"><span>HELADO</span><span>TEMPLADO</span><span>ARDIENDO</span></div>
+      <div class="dist-read"><b id="distNum">—</b><span id="distWord" style="color:var(--dim)">ESPERANDO TU PALABRA</span></div>
+      <div class="tries-row">INTENTOS <div class="dots" id="dots"></div></div>
+    </section>
+  </main>
+
+  <!-- HISTORIAL -->
+  <section class="history">
+    <div class="history-label">PALABRAS LANZADAS</div>
+    <div id="chips"></div>
+  </section>
+
+  <!-- CONSOLA -->
+  <footer class="console" id="console">
+    <input type="text" id="guessInput" placeholder="Pronuncia una palabra…" maxlength="40" autocomplete="off" disabled>
+    <button class="btn-gold" id="btnGuess" disabled>ADIVINAR</button>
+    <button class="btn-clue" id="btnClue" disabled>🔮 PISTA ×3</button>
+    <button class="btn-dim" id="btnSurrender" title="Rendirse" disabled>🏳</button>
+  </footer>
+</div>
+
+<!-- OVERLAY INICIO -->
+<div class="overlay show" id="ovStart">
+  <div class="ov-panel">
+    <div class="ov-title">CÓDICE</div>
+    <p class="ov-sub">El oráculo piensa una palabra. Tú la persigues siguiendo su calor.<br>Sin chat: tú lanzas palabras, él mide la distancia semántica.</p>
+
+    <div class="ov-section-label">CATEGORÍA</div>
+    <div class="cat-pick" id="catPick">
+      <button data-cat="sorpresa" class="sel">🎲 SORPRESA</button>
+      <button data-cat="animales">ANIMALES</button>
+      <button data-cat="comida">COMIDA</button>
+      <button data-cat="lugares">LUGARES</button>
+      <button data-cat="objetos">OBJETOS</button>
+      <button data-cat="profesiones">PROFESIONES</button>
+      <button data-cat="conceptos">CONCEPTOS</button>
+    </div>
+
+    <div class="ov-section-label">DIFICULTAD</div>
+    <div class="diff-pick" id="diffPick">
+      <button data-diff="novato" class="sel">
+        <span><span class="dn">NOVATO</span><br><span class="dd">8 intentos · pistas honestas</span></span>
+        <span class="dm">×1.0</span>
+      </button>
+      <button data-diff="adepto">
+        <span><span class="dn">ADEPTO</span><br><span class="dd">6 intentos · pistas honestas</span></span>
+        <span class="dm">×1.15</span>
+      </button>
+      <button data-diff="traicionero">
+        <span><span class="dn">TRAICIONERO</span><br><span class="dd">6 intentos · el oráculo MIENTE en las pistas (el termómetro nunca miente)</span></span>
+        <span class="dm">×1.4</span>
+      </button>
+    </div>
+
+    <div class="api-warn" id="apiWarn" style="display:none"></div>
+
+    <button class="btn-big" id="btnStart">▶&nbsp;&nbsp;INVOCAR AL ORÁCULO</button>
+
+    <div class="howto">
+      <b>Cómo se juega:</b> escribe una palabra y pulsa ADIVINAR. El termómetro marca la cercanía de <b>significado</b> (no de letras). Tienes 3 pistas por ronda, cada una resta puntos. Sinónimos directos cuentan como acierto. Todo ocurre en tu dispositivo con Gemini Nano.
+    </div>
+  </div>
+</div>
+
+<!-- OVERLAY RESULTADO -->
+<div class="overlay" id="ovEnd">
+  <div class="ov-panel">
+    <div class="ov-title" id="endTitle">¡DESCIFRADO!</div>
+    <p class="ov-sub" id="endSub"></p>
+    <div class="result-word" id="endWord"></div>
+    <div class="breakdown" id="endBreakdown"></div>
+    <div class="btn-row">
+      <button class="btn-again" id="btnAgain">OTRA RONDA</button>
+      <button class="btn-config" id="btnConfig">CAMBIAR MODO</button>
+    </div>
+  </div>
+</div>
+
+<footer class="note">100% ON-DEVICE · GEMINI NANO · SIN RED</footer>
+
+<script>
+(() => {
+  "use strict";
+  const $ = id => document.getElementById(id);
+
+  /* ================= LÉXICO (el secreto vive AQUÍ, no en el LLM) ================= */
+  const WORDS = {
+    animales:["perro","gato","elefante","jirafa","tiburón","águila","serpiente","caballo","delfín","pingüino","mariposa","abeja","tortuga","canguro","lobo","zorro","oso","rana","pulpo","camaleón","hormiga","araña","ballena","tigre","león","conejo","búho","flamenco","gorila","cocodrilo","erizo","ardilla","panda","avestruz","medusa","castor","nutria","halcón","perezoso","murciélago"],
+    comida:["pizza","tortilla","paella","croqueta","gazpacho","hamburguesa","sushi","tacos","flan","churros","ensalada","sopa","filete","bocadillo","helado","chocolate","queso","jamón","pan","arroz","lentejas","macarrones","empanada","ceviche","guacamole","aceitunas","yogur","miel","caramelo","galleta","magdalena","palomitas","salchicha","nuez","aguacate","fresa","plátano","sandía","uvas","cereza"],
+    lugares:["playa","montaña","hospital","colegio","aeropuerto","biblioteca","museo","castillo","desierto","selva","volcán","faro","mercado","estación","cine","teatro","iglesia","puente","cueva","isla","catarata","glaciar","cementerio","banco","gimnasio","supermercado","azotea","sótano","bosque","pradera","oasis","acantilado","planetario","acuario","fuente","plaza","túnel","circo","fábrica","laboratorio"],
+    objetos:["paraguas","reloj","espejo","lámpara","tijeras","martillo","brújula","candado","vela","globo","escalera","almohada","mochila","guitarra","telescopio","microscopio","imán","linterna","abanico","alfombra","cortina","cepillo","jabón","silla","ventana","llave","moneda","sello","pluma","cuaderno","cámara","auriculares","cargador","dron","patinete","bicicleta","dado","naipe","ajedrez","anillo"],
+    profesiones:["bombero","enfermera","piloto","astronauta","detective","panadero","herrero","mago","arqueólogo","veterinario","carpintero","fontanero","electricista","juez","pirata","chef","barista","fotógrafo","arquitecto","minero","pescador","pastor","sastre","relojero","jardinero","traductor","científico","programador","profesor","médico","dentista","actor","pintor","taxista","marinero","cazador","payaso","espía","dj","youtuber"],
+    conceptos:["libertad","tiempo","sueño","justicia","miedo","amor","suerte","destino","silencio","memoria","verdad","mentira","caos","orden","esperanza","nostalgia","gravedad","infinito","eco","sombra","luz","amanecer","tormenta","enigma","secreto","rumor","fama","poder","riqueza","pobreza","paz","guerra","revolución","intuición","instinto","curiosidad","soledad","amistad","magia","azar"]
+  };
+  const CAT_LABEL = {animales:"ANIMALES",comida:"COMIDA",lugares:"LUGARES",objetos:"OBJETOS",profesiones:"PROFESIONES",conceptos:"CONCEPTOS"};
+  const DIFF = {
+    novato:{tries:8, mult:1.0, label:"NOVATO"},
+    adepto:{tries:6, mult:1.15, label:"ADEPTO"},
+    traicionero:{tries:6, mult:1.4, label:"TRAICIONERO"}
+  };
+
+  /* ================= ESTADO ================= */
+  const S = {
+    api:null, session:null,
+    secret:"", category:"sorpresa", diff:"novato",
+    tries:0, maxTries:8, cluesLeft:3, cluesUsed:0,
+    guesses:new Set(), score:0, streak:0, round:1,
+    busy:false, playing:false,
+    best: +(localStorage.getItem("codice.best")||0),
+    muted: localStorage.getItem("codice.muted")==="1"
+  };
+
+  /* ================= SONIDO ================= */
+  let actx=null;
+  function tone(f, d=.09, type="sine", g=.12, delay=0){
+    if(S.muted) return;
+    try{
+      actx = actx || new (window.AudioContext||window.webkitAudioContext)();
+      const o=actx.createOscillator(), v=actx.createGain(), t=actx.currentTime+delay;
+      o.type=type; o.frequency.value=f; v.gain.setValueAtTime(g,t);
+      v.gain.exponentialRampToValueAtTime(.0001,t+d);
+      o.connect(v).connect(actx.destination); o.start(t); o.stop(t+d);
+    }catch(e){}
+  }
+  const sfx = {
+    guess: d => tone(180+d*7, .12, "triangle", .1),
+    clue: () => { tone(880,.1,"sine",.08); tone(1320,.14,"sine",.06,.08); },
+    win: () => [523,659,784,1047].forEach((f,i)=>tone(f,.16,"triangle",.12,i*.11)),
+    lose: () => [330,262,196,147].forEach((f,i)=>tone(f,.2,"sawtooth",.07,i*.14)),
+    err: () => tone(110,.2,"square",.08)
+  };
+
+  /* ================= UTILIDADES ================= */
+  const norm = s => s.toLowerCase().normalize("NFD").replace(/\p{M}/gu,"").trim();
+  const rand = a => a[Math.floor(Math.random()*a.length)];
+  function parseJSON(text){
+    const t = text.replace(/```json|```/gi,"").trim();
+    const m = t.match(/\{[\s\S]*\}/);
+    if(!m) throw new Error("sin JSON");
+    return JSON.parse(m[0]);
+  }
+  function censor(t){
+    if(!S.secret) return t;
+    try{ return t.replace(new RegExp(S.secret,"gi"),"▮▮▮"); }catch(e){ return t; }
+  }
+
+  let typeTimer=null;
+  function speak(text, tag="ORÁCULO"){
+    clearInterval(typeTimer);
+    $("speechTag").textContent = tag;
+    const el = $("speech"); el.textContent="";
+    let i=0;
+    typeTimer = setInterval(()=>{
+      el.textContent = text.slice(0,++i);
+      if(i>=text.length) clearInterval(typeTimer);
+    },14);
+  }
+  function think(on){ $("orbWrap").classList.toggle("thinking",on); }
+
+  function updateHUD(){
+    $("hRound").textContent = S.round;
+    $("hScore").textContent = S.score.toLocaleString("es");
+    $("hStreak").textContent = S.streak + " 🔥";
+    $("hBest").textContent = Math.max(S.best,S.score).toLocaleString("es");
+  }
+  function drawDots(){
+    $("dots").innerHTML = "";
+    for(let i=0;i<S.maxTries;i++){
+      const d=document.createElement("div");
+      d.className="dot-try"+(i<S.tries?" used":"");
+      $("dots").appendChild(d);
+    }
+  }
+  function heat(d){
+    if(d>=90) return ["#ff5c3d","ARDIENDO"];
+    if(d>=70) return ["#ff9636","MUY CALIENTE"];
+    if(d>=50) return ["#f2c14e","CALIENTE"];
+    if(d>=30) return ["#58c6a8","TEMPLADO"];
+    if(d>=15) return ["#6ec6ff","FRÍO"];
+    return ["#5a8fd6","HELADO"];
+  }
+
+  /* ================= API ADAPTER ================= */
+  const AVAIL_MAP={readily:"available","after-download":"downloadable",no:"unavailable"};
+  function getApi(){
+    if("LanguageModel" in window) return {label:"LanguageModel", availability:()=>window.LanguageModel.availability(), create:o=>window.LanguageModel.create(o)};
+    if(window.ai?.languageModel) return {label:"window.ai", availability:async()=>{const c=await window.ai.languageModel.capabilities(); return AVAIL_MAP[c.available]||"unavailable";}, create:o=>window.ai.languageModel.create(o)};
+    return null;
+  }
+  async function initApi(){
+    const api=getApi();
+    if(!api) return {ok:false, msg:"Este navegador no expone la Prompt API. Necesitas Chrome o Edge 138+ con las flags activadas."};
+    try{
+      const av=await api.availability();
+      if(av==="unavailable") return {ok:false, msg:"La Prompt API no está habilitada. Actívala en chrome://flags/#prompt-api-for-gemini-nano"};
+      if(av==="downloadable") return {ok:false, msg:"El modelo Gemini Nano aún no está descargado. Hazlo desde chrome://on-device-ai-internals"};
+      if(av==="downloading") return {ok:false, msg:"Gemini Nano se está descargando todavía. Espera a que termine e inténtalo de nuevo."};
+      S.api=api;
+      return {ok:true};
+    }catch(e){ return {ok:false, msg:"Error consultando disponibilidad: "+e.message}; }
+  }
+  async function makeSession(sys){
+    try{ return await S.api.create({systemPrompt:sys, outputLanguage:"es"}); }
+    catch(e){ return await S.api.create({systemPrompt:sys}); }
+  }
+
+  /* ================= RONDA ================= */
+  async function startRound(){
+    $("ovStart").classList.remove("show");
+    $("ovEnd").classList.remove("show");
+    S.busy=true; S.playing=false;
+    S.tries=0; S.cluesUsed=0; S.cluesLeft=3; S.guesses=new Set();
+    $("chips").innerHTML=""; $("needle").classList.remove("on");
+    $("distNum").textContent="—"; $("distNum").style.color="var(--ink)";
+    $("distWord").textContent="ESPERANDO TU PALABRA"; $("distWord").style.color="var(--dim)";
+    $("btnClue").textContent="🔮 PISTA ×3";
+    setInput(false);
+    S.maxTries = DIFF[S.diff].tries;
+    drawDots();
+
+    // palabra secreta (estado local, jamás en pantalla)
+    const cat = S.category==="sorpresa" ? rand(Object.keys(WORDS)) : S.category;
+    S.secretCat = cat;
+    let w = rand(WORDS[cat]);
+    if(w===S.secret) w = rand(WORDS[cat]);
+    S.secret = w;
+    $("catLine").textContent = CAT_LABEL[cat];
+
+    think(true);
+    speak("Conjurando una palabra entre las estrellas…");
+
+    const sys = `Eres el Oráculo de CÓDICE, un juego de adivinanza. Tú conoces la palabra secreta: "${S.secret}" (categoría: ${CAT_LABEL[cat]}).
+REGLAS ABSOLUTAS:
+- JAMÁS reveles la palabra secreta: no la escribas, no des letras, no uses su familia léxica ni sinónimos obvios.
+- Respondes SIEMPRE con JSON válido, sin markdown, sin texto fuera del JSON.
+- Tono: místico, sarcástico y muy breve.`;
+
+    try{
+      S.session = await makeSession(sys);
+      S.playing=true;
+      setInput(true);
+      speak(`He pensado una palabra. Categoría: ${CAT_LABEL[cat].toLowerCase()}. Pronuncia la tuya y mediré su calor.`, "ORÁCULO");
+      tone(392,.15,"sine",.08); tone(523,.2,"sine",.07,.12);
+    }catch(e){
+      speak("Los astros se resisten: "+e.message);
+      sfx.err();
+    }
+    think(false);
+    S.busy=false;
+    updateHUD();
+  }
+
+  function setInput(on){
+    $("guessInput").disabled=!on;
+    $("btnGuess").disabled=!on;
+    $("btnClue").disabled=!on || S.cluesLeft<=0;
+    $("btnSurrender").disabled=!on;
+    if(on) $("guessInput").focus();
+  }
+
+  /* ================= JUICIO SEMÁNTICO ================= */
+  async function judge(guess){
+    const p = `El jugador propone la palabra: "${guess}".
+Responde SOLO con JSON válido:
+{"acierto":true|false,"distancia":0-100,"reaccion":"máximo 12 palabras"}
+- acierto=true SOLO si "${guess}" es la palabra secreta o un sinónimo directo.
+- distancia = cercanía SEMÁNTICA real entre "${guess}" y la secreta (100=mismo concepto, 0=nada que ver). Sé justo y consistente.
+- reaccion = comentario místico y breve del oráculo, sin dar pistas.`;
+    const raw = await S.session.prompt(p);
+    return parseJSON(raw);
+  }
+
+  async function submitGuess(){
+    if(!S.playing || S.busy) return;
+    const raw = $("guessInput").value.trim();
+    if(raw.length<2){ sfx.err(); return; }
+    const g = norm(raw);
+    if(!/[a-zñ]/.test(g)){ sfx.err(); return; }
+    if(S.guesses.has(g)){ speak("Esa palabra ya la pronunciaste, mortal."); sfx.err(); return; }
+
+    S.busy=true; setInput(false);
+    $("guessInput").value="";
+    think(true);
+    speak("El oráculo contempla tu palabra…");
+
+    // acierto exacto local (sin gastar LLM)
+    if(g === norm(S.secret)){
+      think(false);
+      return finishRound(true, g, 100);
+    }
+
+    let verdict=null;
+    for(let attempt=0; attempt<2 && !verdict; attempt++){
+      try{
+        const v = await judge(raw);
+        if(typeof v.distancia==="number") verdict=v;
+      }catch(e){}
+    }
+    if(!verdict) verdict = {acierto:false, distancia:33, reaccion:"El oráculo masculla algo ininteligible."};
+
+    think(false);
+    let d = Math.max(0, Math.min(100, Math.round(verdict.distancia)));
+    if(verdict.acierto===true) d=100;
+    S.tries++;
+    S.guesses.add(g);
+    drawDots();
+    sfx.guess(d);
+
+    // termómetro
+    $("needle").classList.add("on");
+    $("needle").style.left = d+"%";
+    const [col,label] = d>=100 ? ["var(--gold)","¡EXACTO!"] : heat(d);
+    $("distNum").textContent = d;
+    $("distNum").style.color = col;
+    $("distWord").textContent = label;
+    $("distWord").style.color = col;
+
+    // chip de historial
+    const chip=document.createElement("div");
+    chip.className="chip-g";
+    chip.style.borderColor=col; chip.style.background=col+"22"; chip.style.color=col;
+    chip.innerHTML=`<span class="w">${censor(raw).replace(/</g,"&lt;")}</span><span class="t">${d} · ${label}</span>`;
+    $("chips").appendChild(chip);
+
+    if(verdict.acierto===true || d>=100){
+      return finishRound(true, g, d);
+    }
+
+    speak(censor(String(verdict.reaccion||"…").slice(0,140)));
+    if(d<15){ $("console").classList.add("shake"); setTimeout(()=>$("console").classList.remove("shake"),400); }
+
+    if(S.tries>=S.maxTries) return finishRound(false, g, d);
+
+    S.busy=false; setInput(true);
+  }
+
+  /* ================= PISTAS ================= */
+  async function askClue(){
+    if(!S.playing || S.busy || S.cluesLeft<=0) return;
+    S.busy=true; setInput(false);
+    think(true);
+    speak("El oráculo susurra una pista…");
+
+    const mode = S.diff==="traicionero"
+      ? "ENGAÑOSO: la pista debe despistar sutilmente hacia otra cosa, sin ser una mentira absurda"
+      : "HONESTO: la pista debe ayudar de verdad, pero siendo críptica";
+    try{
+      const raw = await S.session.prompt(`Da una pista sobre la palabra secreta. Modo ${mode}. Máximo 15 palabras. No uses la palabra secreta ni su familia léxica. Responde SOLO JSON: {"pista":"..."}`);
+      const j = parseJSON(raw);
+      const clue = censor(String(j.pista||"El silencio es mi única respuesta."));
+      S.cluesLeft--; S.cluesUsed++;
+      $("btnClue").textContent = "🔮 PISTA ×"+S.cluesLeft;
+      sfx.clue();
+      speak("«"+clue+"»","PISTA · −150 PTS");
+    }catch(e){
+      speak("El susurro se pierde en el vacío…");
+      sfx.err();
+    }
+    think(false);
+    S.busy=false;
+    if(S.playing) setInput(true);
+  }
+
+  /* ================= FIN DE RONDA ================= */
+  function finishRound(won, lastGuess, d){
+    S.playing=false; setInput(false);
+    think(false);
+
+    if(won){
+      sfx.win();
+      confetti();
+      const used=S.tries;
+      const base = Math.max(100, 1000 - (used-1)*90 - S.cluesUsed*150);
+      const mult = DIFF[S.diff].mult;
+      const streakMult = 1 + Math.min(S.streak,10)*0.05;
+      const pts = Math.round(base*mult*streakMult);
+      S.score += pts;
+      S.streak++;
+      if(S.score>S.best){ S.best=S.score; localStorage.setItem("codice.best",S.best); }
+      speak(`«${S.secret}»… La encontraste, mortal. Impresionante.`);
+      showEnd(true, {used, pts, base, mult, streakMult});
+    }else{
+      sfx.lose();
+      S.streak=0;
+      speak(`Demasiado tarde. La palabra era «${S.secret}».`);
+      showEnd(false, {used:S.tries});
+    }
+    S.round++;
+    updateHUD();
+  }
+
+  function showEnd(won, info){
+    const ov=$("ovEnd");
+    if(won){
+      $("endTitle").textContent="¡DESCIFRADO!";
+      $("endTitle").style.color="var(--gold)";
+      $("endSub").textContent=`${DIFF[S.diff].label} · racha ${S.streak} 🔥`;
+      $("endWord").innerHTML=`<span style="color:var(--gold)">${S.secret.toUpperCase()}</span>`;
+      $("endBreakdown").innerHTML=`
+        <div class="bd-row"><span>Intentos usados</span><b>${info.used} / ${S.maxTries}</b></div>
+        <div class="bd-row"><span>Pistas consumidas</span><b>${S.cluesUsed} (−${S.cluesUsed*150})</b></div>
+        <div class="bd-row"><span>Base</span><b>${info.base}</b></div>
+        <div class="bd-row"><span>Multiplicador dificultad</span><b>×${info.mult}</b></div>
+        <div class="bd-row"><span>Multiplicador racha</span><b>×${info.streakMult.toFixed(2)}</b></div>
+        <div class="bd-row total"><span>GANANCIA</span><b>+${info.pts.toLocaleString("es")}</b></div>`;
+    }else{
+      $("endTitle").textContent="EL ORÁCULO VENCE";
+      $("endTitle").style.color="var(--hotred)";
+      $("endSub").textContent="La racha se ha roto. Los astros se ríen.";
+      $("endWord").innerHTML=`era <span style="color:var(--hotred)">${S.secret.toUpperCase()}</span>`;
+      $("endBreakdown").innerHTML=`
+        <div class="bd-row"><span>Intentos agotados</span><b>${info.used} / ${S.maxTries}</b></div>
+        <div class="bd-row"><span>Puntos totales</span><b>${S.score.toLocaleString("es")}</b></div>`;
+    }
+    setTimeout(()=>ov.classList.add("show"), won?900:600);
+  }
+
+  function confetti(){
+    const colors=["#f5b942","#ff6b35","#6ec6ff","#4ade80","#8b5cf6","#ffffff"];
+    for(let i=0;i<70;i++){
+      const c=document.createElement("div");
+      c.className="confetti";
+      const s=6+Math.random()*8;
+      c.style.cssText=`left:${Math.random()*100}vw; width:${s}px; height:${s*1.4}px;
+        background:${rand(colors)}; animation-duration:${1.6+Math.random()*1.8}s;
+        animation-delay:${Math.random()*.6}s; border-radius:2px;`;
+      document.body.appendChild(c);
+      setTimeout(()=>c.remove(),4200);
+    }
+  }
+
+  /* ================= EVENTOS ================= */
+  $("btnGuess").addEventListener("click", submitGuess);
+  $("guessInput").addEventListener("keydown", e=>{ if(e.key==="Enter") submitGuess(); });
+  $("btnClue").addEventListener("click", askClue);
+  $("btnSurrender").addEventListener("click", ()=>{
+    if(S.playing && confirm("¿Rendirte ante el oráculo? Perderás la racha.")) finishRound(false,"",0);
+  });
+  $("btnStart").addEventListener("click", async ()=>{
+    $("btnStart").disabled=true;
+    const r = await initApi();
+    if(!r.ok){
+      $("apiWarn").style.display="block";
+      $("apiWarn").textContent="⚠ "+r.msg;
+      $("btnStart").disabled=false;
+      return;
+    }
+    $("apiWarn").style.display="none";
+    startRound();
+  });
+  $("btnAgain").addEventListener("click", ()=>startRound());
+  $("btnConfig").addEventListener("click", ()=>{
+    $("ovEnd").classList.remove("show");
+    $("ovStart").classList.add("show");
+    $("btnStart").disabled=false;
+  });
+  $("catPick").addEventListener("click", e=>{
+    const b=e.target.closest("button"); if(!b) return;
+    $("catPick").querySelectorAll("button").forEach(x=>x.classList.remove("sel"));
+    b.classList.add("sel"); S.category=b.dataset.cat;
+    tone(600,.06,"sine",.06);
+  });
+  $("diffPick").addEventListener("click", e=>{
+    const b=e.target.closest("button"); if(!b) return;
+    $("diffPick").querySelectorAll("button").forEach(x=>x.classList.remove("sel"));
+    b.classList.add("sel"); S.diff=b.dataset.diff;
+    tone(500,.06,"sine",.06);
+  });
+  $("btnMute").addEventListener("click", ()=>{
+    S.muted=!S.muted;
+    localStorage.setItem("codice.muted",S.muted?"1":"0");
+    $("btnMute").textContent=S.muted?"🔇":"🔊";
+  });
+
+  /* ================= INIT ================= */
+  $("btnMute").textContent = S.muted?"🔇":"🔊";
+  updateHUD();
+})();
+</script>
+</body>
+</html>
