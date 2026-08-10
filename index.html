@@ -209,6 +209,25 @@
   .howto{margin-top:1.3rem; padding-top:1.1rem; border-top:1px solid var(--line); font-size:.8rem; color:var(--dim); line-height:1.7}
   .howto b{color:var(--mut)}
 
+  .tech-note{text-align:center; font-size:.78rem; color:var(--mut); margin:-.4rem 0 1rem; line-height:1.5}
+  .tech-note b{color:var(--ice)}
+  .compat-row{
+    display:flex; align-items:center; justify-content:center; gap:.5rem; flex-wrap:wrap;
+    font-family:var(--mono); font-size:.68rem; letter-spacing:.04em; color:var(--mut);
+    background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:.55rem .8rem; margin-bottom:1.2rem;
+  }
+  .compat-row .link{
+    background:none; border:none; color:var(--ice); text-decoration:underline; text-underline-offset:2px;
+    cursor:pointer; font-family:var(--mono); font-size:.68rem; padding:0;
+  }
+  .help-steps{margin:1rem 0 0; padding-left:1.25rem; font-size:.85rem; color:var(--mut); line-height:1.85}
+  .help-steps li{margin-bottom:.6rem}
+  .help-steps b{color:var(--ink)}
+  .help-steps code{
+    background:var(--panel2); border:1px solid var(--line); border-radius:4px;
+    padding:.1rem .4rem; font-family:var(--mono); font-size:.78rem; color:var(--ice);
+  }
+
   .result-word{font-family:var(--disp); font-weight:900; font-size:1.7rem; text-align:center; margin:.8rem 0 1.2rem; letter-spacing:.06em}
   .breakdown{border:1px solid var(--line); border-radius:8px; overflow:hidden; margin-top:.4rem}
   .bd-row{display:flex; justify-content:space-between; padding:.5rem .9rem; font-size:.85rem; border-bottom:1px solid var(--line)}
@@ -288,6 +307,13 @@
   <div class="ov-panel">
     <div class="ov-title">CÓDICE</div>
     <p class="ov-sub">El oráculo piensa una palabra. Tú la persigues siguiendo su calor.<br>Sin chat: tú lanzas palabras, él mide la distancia semántica.</p>
+    <p class="tech-note">Funciona 100% en tu dispositivo con <b>Gemini Nano</b> vía la <b>Prompt API</b> de Chrome/Edge — nada se envía a un servidor.</p>
+
+    <div class="compat-row" id="compatRow">
+      <span id="compatDot">⏳</span>
+      <span id="compatMsg">Comprobando compatibilidad de tu navegador…</span>
+      <button type="button" class="link" id="btnHowTo" style="display:none">¿Cómo activarlo?</button>
+    </div>
 
     <div class="ov-section-label">CATEGORÍA</div>
     <div class="cat-pick" id="catPick">
@@ -337,6 +363,22 @@
       <button class="btn-again" id="btnAgain">OTRA RONDA</button>
       <button class="btn-config" id="btnConfig">CAMBIAR MODO</button>
     </div>
+  </div>
+</div>
+
+<!-- OVERLAY AYUDA -->
+<div class="overlay" id="ovHelp">
+  <div class="ov-panel">
+    <div class="ov-title" style="font-size:1.7rem">ACTIVAR EL ORÁCULO</div>
+    <p class="ov-sub">CÓDICE usa <b style="color:var(--ice)">Gemini Nano</b>, el modelo de IA integrado en el navegador, a través de la <b style="color:var(--ice)">Prompt API</b>. Todo corre en tu dispositivo, nada viaja a un servidor. Para activarlo:</p>
+    <ol class="help-steps">
+      <li><b>Requisito:</b> Chrome o Edge <b>138 o superior</b>, en escritorio. Comprueba tu versión en <code>chrome://version</code>.</li>
+      <li>Abre <code>chrome://flags/#prompt-api-for-gemini-nano</code> y cambia la opción a <b>Enabled</b>.</li>
+      <li>Reinicia el navegador cuando te lo pida.</li>
+      <li>Abre <code>chrome://on-device-ai-internals</code> y confirma que el modelo Gemini Nano aparece <b>descargado</b>. Puede tardar varios minutos (pesa unos GB); si figura como "downloadable", espera a que termine.</li>
+      <li>Vuelve a esta pantalla y pulsa <b>INVOCAR AL ORÁCULO</b> de nuevo.</li>
+    </ol>
+    <button class="btn-big" id="btnHelpClose">ENTENDIDO</button>
   </div>
 </div>
 
@@ -450,6 +492,20 @@
     if("LanguageModel" in window) return {label:"LanguageModel", availability:()=>window.LanguageModel.availability(), create:o=>window.LanguageModel.create(o)};
     if(window.ai?.languageModel) return {label:"window.ai", availability:async()=>{const c=await window.ai.languageModel.capabilities(); return AVAIL_MAP[c.available]||"unavailable";}, create:o=>window.ai.languageModel.create(o)};
     return null;
+  }
+  async function checkCompat(){
+    const r = await initApi();
+    const dot=$("compatDot"), msg=$("compatMsg"), how=$("btnHowTo");
+    if(r.ok){
+      dot.textContent="🟢";
+      msg.textContent="Tu navegador es compatible — listo para invocar";
+      how.style.display="none";
+    }else{
+      dot.textContent="🔴";
+      msg.textContent=r.msg;
+      how.style.display="inline";
+    }
+    return r;
   }
   async function initApi(){
     const api=getApi();
@@ -702,7 +758,7 @@ Responde SOLO con JSON válido:
   });
   $("btnStart").addEventListener("click", async ()=>{
     $("btnStart").disabled=true;
-    const r = await initApi();
+    const r = await checkCompat();
     if(!r.ok){
       $("apiWarn").style.display="block";
       $("apiWarn").textContent="⚠ "+r.msg;
@@ -712,6 +768,8 @@ Responde SOLO con JSON válido:
     $("apiWarn").style.display="none";
     startRound();
   });
+  $("btnHowTo").addEventListener("click", ()=>{ $("ovHelp").classList.add("show"); });
+  $("btnHelpClose").addEventListener("click", ()=>{ $("ovHelp").classList.remove("show"); });
   $("btnAgain").addEventListener("click", ()=>startRound());
   $("btnConfig").addEventListener("click", ()=>{
     $("ovEnd").classList.remove("show");
@@ -739,6 +797,7 @@ Responde SOLO con JSON válido:
   /* ================= INIT ================= */
   $("btnMute").textContent = S.muted?"🔇":"🔊";
   updateHUD();
+  checkCompat();
 })();
 </script>
 </body>
