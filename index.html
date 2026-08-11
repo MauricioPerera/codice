@@ -366,6 +366,18 @@
   </div>
 </div>
 
+<!-- OVERLAY RENDICIÓN -->
+<div class="overlay" id="ovSurrender">
+  <div class="ov-panel" style="max-width:380px">
+    <div class="ov-title" style="font-size:1.6rem">¿RENDIRTE?</div>
+    <p class="ov-sub">Perderás la racha actual ante el oráculo.</p>
+    <div class="btn-row">
+      <button class="btn-again" id="btnSurrenderYes" style="background:var(--hotred); color:#fff">SÍ, RENDIRME</button>
+      <button class="btn-config" id="btnSurrenderNo">SEGUIR JUGANDO</button>
+    </div>
+  </div>
+</div>
+
 <!-- OVERLAY AYUDA -->
 <div class="overlay" id="ovHelp">
   <div class="ov-panel">
@@ -766,7 +778,12 @@ Responde SOLO con JSON válido:
   $("guessInput").addEventListener("keydown", e=>{ if(e.key==="Enter") submitGuess(); });
   $("btnClue").addEventListener("click", askClue);
   $("btnSurrender").addEventListener("click", ()=>{
-    if(S.playing && confirm("¿Rendirte ante el oráculo? Perderás la racha.")) finishRound(false,"",0);
+    if(S.playing) $("ovSurrender").classList.add("show");
+  });
+  $("btnSurrenderNo").addEventListener("click", ()=>$("ovSurrender").classList.remove("show"));
+  $("btnSurrenderYes").addEventListener("click", ()=>{
+    $("ovSurrender").classList.remove("show");
+    finishRound(false,"",0);
   });
   $("btnStart").addEventListener("click", async ()=>{
     $("btnStart").disabled=true;
